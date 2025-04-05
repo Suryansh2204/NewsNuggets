@@ -8,6 +8,8 @@ from requests.exceptions import RequestException
 import time
 import boto3
 from datetime import datetime
+import html
+from io import BytesIO
 
 def lambda_handler(event, context):
     try:
@@ -42,6 +44,10 @@ def lambda_handler(event, context):
                     news.append(data)
                 else:
                     raise Exception("Failed to fetch a page")
+            for news_data in news:
+                news_data['title'] = clean_text(news_data['title'])
+                news_data['description'] = clean_text(news_data['description'])
+                news_data['content'] = clean_text(news_data['content'])
             save_to_s3(news)
         else:
             raise Exception("Failed to fetch the latest news links.")
@@ -52,13 +58,18 @@ def lambda_handler(event, context):
         }
     
 def save_to_s3(result):
+    json_bytes = json.dumps(result, ensure_ascii=False, indent=2).encode('utf-8')
+    json_buffer = BytesIO(json_bytes)
     s3 = boto3.client("s3")
     bucket_name = "news-nuggets-bucket"
     subfolder = "scrapped_news"
     current_date = datetime.now().strftime("%Y-%m-%d")
     subfolder = f"{subfolder}/{current_date}"
     file_name = f"{subfolder}/news.json"
-    s3.put_object(Bucket=bucket_name, Key=file_name, Body=json.dumps(result))
+    s3.put_object(Bucket=bucket_name, Key=file_name, Body=json_buffer)
+
+def clean_text(text):
+    return html.unescape(BeautifulSoup(text, "html.parser").get_text()).replace('\xa0', ' ').strip()
 
 def safe_get(url):
     try:
