@@ -29,6 +29,11 @@ resource "aws_s3_object" "news_org_folder" {
   key    = "news-org/.keep"
   content = ""
 }
+resource "aws_s3_object" "scrapped_news_folder" {
+  bucket = aws_s3_bucket.news_bucket.id
+  key    = "scrapped_news/.keep"
+  content = ""
+}
 
 # Variables for reusability
 locals {
@@ -72,6 +77,17 @@ resource "aws_lambda_function" "summarize_and_categorize" {
   architectures    = [local.architecture]
   role             = local.role_arn
   source_code_hash = filebase64sha256("summarize_and_categorize.zip")
+  timeout          = local.timeout
+  layers           = [local.layer_arn]
+}
+resource "aws_lambda_function" "news_scraper" {
+  function_name    = "news_scraper"
+  filename         = "news_scraper.zip"
+  handler          = "news_scraper.lambda_handler"
+  runtime          = local.runtime
+  architectures    = [local.architecture]
+  role             = local.role_arn
+  source_code_hash = filebase64sha256("news_scraper.zip")
   timeout          = local.timeout
   layers           = [local.layer_arn]
 }

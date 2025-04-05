@@ -8,6 +8,7 @@ cd ./mlOps/news-nuggets
 Compress-Archive -Path get_news.py -DestinationPath get_news.zip
 Compress-Archive -Path get_secrets.py -DestinationPath get_secrets.zip
 Compress-Archive -Path summarize_and_categorize.py -DestinationPath summarize_and_categorize.zip
+Compress-Archive -Path news_scraper.py -DestinationPath news_scraper.zip
 ```
 
 ## Configure AWS (If not already)
@@ -61,3 +62,5 @@ terraform validate      # validate the config ( check for any syntax error)
 terraform plan          # see the execution plan
 terraform apply         # Apply the config (deploy to aws)
 ```
+
+<!-- Fake news -->
