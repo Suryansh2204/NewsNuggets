@@ -9,11 +9,12 @@ Compress-Archive -Path get_news.py -DestinationPath get_news.zip
 Compress-Archive -Path get_secrets.py -DestinationPath get_secrets.zip
 Compress-Archive -Path summarize_and_categorize.py -DestinationPath summarize_and_categorize.zip
 Compress-Archive -Path news_scraper.py -DestinationPath news_scraper.zip
+Compress-Archive -Path consumer.py -DestinationPath consumer.zip
 ```
 
 ## Configure AWS (If not already)
 
-I aws cli is not installed then go to [AWS CLI DOWNLOAD for windows](https://awscli.amazonaws.com/AWSCLIV2.msi)
+If aws cli is not installed then go to [AWS CLI DOWNLOAD for windows](https://awscli.amazonaws.com/AWSCLIV2.msi)
 
 > then open the terminal from the news-nuggets directory
 

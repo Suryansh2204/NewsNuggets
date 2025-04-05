@@ -48,7 +48,8 @@ def lambda_handler(event, context):
                 news_data['title'] = clean_text(news_data['title'])
                 news_data['description'] = clean_text(news_data['description'])
                 news_data['content'] = clean_text(news_data['content'])
-            save_to_s3(news)
+            # save_to_s3(news)
+            send_to_kinesis(news)
         else:
             raise Exception("Failed to fetch the latest news links.")
     except Exception as e:
@@ -56,7 +57,18 @@ def lambda_handler(event, context):
             'statusCode': 500,
             'body': json.dumps(str(e))
         }
-    
+
+def send_to_kinesis(news_list):
+    kinesis = boto3.client('kinesis')
+    stream_name = 'news-stream'
+
+    for news in news_list:
+        kinesis.put_record(
+            StreamName=stream_name,
+            Data=json.dumps(news),
+            PartitionKey=news['title'][:50]
+        )
+
 def save_to_s3(result):
     json_bytes = json.dumps(result, ensure_ascii=False, indent=2).encode('utf-8')
     json_buffer = BytesIO(json_bytes)

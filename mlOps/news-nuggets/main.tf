@@ -91,3 +91,64 @@ resource "aws_lambda_function" "news_scraper" {
   timeout          = local.timeout
   layers           = [local.layer_arn]
 }
+
+# Kinesis Data Stream
+resource "aws_kinesis_stream" "news_stream" {
+  name             = "news-stream"
+  shard_count      = 1
+  retention_period = 24  # hours (default is 24, max is 8760)
+
+  stream_mode_details {
+    stream_mode = "PROVISIONED"
+  }
+
+  tags = {
+    Name = "News Stream"
+    Environment = "Production"
+  }
+}
+
+# DynamoDB Table
+resource "aws_dynamodb_table" "news_articles" {
+  name           = "NewsArticles"
+  billing_mode   = "PAY_PER_REQUEST"
+
+  hash_key       = "article_id"
+  range_key      = "publishedAt"
+
+  attribute {
+    name = "article_id"
+    type = "S"
+  }
+
+  attribute {
+    name = "publishedAt"
+    type = "S"
+  }
+
+  tags = {
+    Name        = "NewsArticles"
+    Environment = "Production"
+  }
+}
+
+# Lambda: consumer
+resource "aws_lambda_function" "consumer" {
+  function_name    = "consumer"
+  filename         = "consumer.zip"
+  handler          = "consumer.lambda_handler"
+  runtime          = local.runtime
+  architectures    = [local.architecture]
+  role             = local.role_arn
+  source_code_hash = filebase64sha256("consumer.zip")
+  timeout          = local.timeout
+  layers           = [local.layer_arn]
+}
+
+# Kinesis Trigger for Lambda
+resource "aws_lambda_event_source_mapping" "kinesis_to_consumer" {
+  event_source_arn  = aws_kinesis_stream.news_stream.arn
+  function_name     = aws_lambda_function.consumer.arn
+  starting_position = "LATEST"
+  batch_size        = 9
+}
