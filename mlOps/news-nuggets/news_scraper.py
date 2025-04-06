@@ -14,8 +14,7 @@ from io import BytesIO
 def lambda_handler(event, context):
     try:
     # scrape latest news from Bangkok Post
-        website_url="https://www.bangkokpost.com"
-        latest_news_url = website_url+"/most-recent"
+        latest_news_url = "https://www.bangkokpost.com/most-recent"
         response = safe_get(latest_news_url)
         if response is not None:
             soup = BeautifulSoup(response.text, "html.parser")
@@ -36,10 +35,12 @@ def lambda_handler(event, context):
             sleep_for=5 # sleep for 5 seconds between requests to simulate human behavior
             for link in links:
                 time.sleep(sleep_for)
-                target=website_url + link
+                target="https://www.bangkokpost.com" + link
                 response= safe_get(target)
                 if response is not None:
                     soup = BeautifulSoup(response.text, "html.parser")
+                    if(soup.find("div", class_="article-content") is None):
+                        continue
                     data = get_data(soup)
                     news.append(data)
                 else:
@@ -63,9 +64,10 @@ def send_to_kinesis(news_list):
     stream_name = 'news-stream'
 
     for news in news_list:
+        json_bytes=json.dumps(news, ensure_ascii=False, indent=2).encode('utf-8')
         kinesis.put_record(
             StreamName=stream_name,
-            Data=json.dumps(news),
+            Data=json_bytes,
             PartitionKey=news['title'][:50]
         )
 
