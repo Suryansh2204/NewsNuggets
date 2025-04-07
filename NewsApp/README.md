@@ -11,6 +11,7 @@ This application is configured to run in **Demo Mode** without requiring a real 
 Instead of connecting to Supabase, the app uses a local mock authentication system:
 
 - **Demo Credentials**:
+
   - Email: `user@example.com`
   - Password: `password123`
 
@@ -54,13 +55,15 @@ This app is built with:
 ## Getting Started
 
 1. Install dependencies:
+
    ```
-   bun install
+   npm install
    ```
 
 2. Start the development server:
+
    ```
-   bun start
+   npm run android
    ```
 
 3. Use the Expo Go app on your mobile device or an emulator to run the application
