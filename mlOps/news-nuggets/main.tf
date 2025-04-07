@@ -152,3 +152,54 @@ resource "aws_lambda_event_source_mapping" "kinesis_to_consumer" {
   starting_position = "LATEST"
   batch_size        = 9
 }
+
+# Lambda Function to get news
+resource "aws_lambda_function" "get_news_api" {
+  function_name    = "getNewsAPI"
+  filename         = "getNewsAPI.zip"
+  handler          = "getNewsAPI.lambda_handler"
+  runtime          = local.runtime
+  architectures    = [local.architecture]
+  role             = local.role_arn
+  source_code_hash = filebase64sha256("getNewsAPI.zip")
+  timeout          = local.timeout
+  layers           = [local.layer_arn]
+}
+
+# API Gateway HTTP API
+resource "aws_apigatewayv2_api" "news_api" {
+  name          = "NewsAPI"
+  protocol_type = "HTTP"
+}
+
+# Lambda Integration
+resource "aws_apigatewayv2_integration" "lambda_integration" {
+  api_id           = aws_apigatewayv2_api.news_api.id
+  integration_type = "AWS_PROXY"
+  integration_uri  = aws_lambda_function.get_news_api.invoke_arn
+  integration_method = "POST"
+  payload_format_version = "2.0"
+}
+
+# API Gateway Route: GET /getnews
+resource "aws_apigatewayv2_route" "news_route" {
+  api_id    = aws_apigatewayv2_api.news_api.id
+  route_key = "GET /getnews"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
+}
+
+# API Deployment Stage
+resource "aws_apigatewayv2_stage" "default" {
+  api_id      = aws_apigatewayv2_api.news_api.id
+  name        = "prod"
+  auto_deploy = true
+}
+
+# Lambda permission to be invoked by API Gateway
+resource "aws_lambda_permission" "api_gateway" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.get_news_api.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.news_api.execution_arn}/*/*/getnews"
+}

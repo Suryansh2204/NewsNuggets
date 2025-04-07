@@ -10,6 +10,7 @@ Compress-Archive -Path get_secrets.py -DestinationPath get_secrets.zip
 Compress-Archive -Path summarize_and_categorize.py -DestinationPath summarize_and_categorize.zip
 Compress-Archive -Path news_scraper.py -DestinationPath news_scraper.zip
 Compress-Archive -Path consumer.py -DestinationPath consumer.zip
+Compress-Archive -Path getNewsAPI.py -DestinationPath getNewsAPI.zip
 ```
 
 ## Configure AWS (If not already)
