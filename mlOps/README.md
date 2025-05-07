@@ -66,3 +66,9 @@ terraform apply         # Apply the config (deploy to aws)
 ```
 
 <!-- Fake news -->
+
+#### Delete secrets
+
+```
+aws secretsmanager delete-secret --secret-id apikeys --force-delete-without-recovery
+```

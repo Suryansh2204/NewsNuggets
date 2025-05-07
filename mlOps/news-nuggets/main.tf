@@ -2,6 +2,33 @@ provider "aws" {
   region = "us-east-1"
 }
 
+# Variables for reusability
+locals {
+  runtime        = "python3.13"
+  architecture   = "arm64"
+  timeout        = 180
+  role_arn       = "arn:aws:iam::800926736763:role/LabRole"
+  layer_arn      = "arn:aws:lambda:us-east-1:336392948345:layer:AWSSDKPandas-Python313-Arm64:1"
+}
+
+# for secrets manager
+variable "open_ai_key" {
+  type      = string
+  sensitive = true
+}
+
+resource "aws_secretsmanager_secret" "apikeys" {
+  name = "apikeys"
+}
+
+resource "aws_secretsmanager_secret_version" "apikey_value" {
+  secret_id     = aws_secretsmanager_secret.apikeys.id
+  secret_string = jsonencode({
+    OPEN_AI_KEY = var.open_ai_key
+  })
+}
+
+
 # # S3 Bucket
 # resource "aws_s3_bucket" "news_bucket" {
 #   bucket = "news-nuggets-bucket"
@@ -35,14 +62,7 @@ provider "aws" {
 #   content = ""
 # }
 
-# Variables for reusability
-locals {
-  runtime        = "python3.13"
-  architecture   = "arm64"
-  timeout        = 180
-  role_arn       = "arn:aws:iam::800926736763:role/LabRole"
-  layer_arn      = "arn:aws:lambda:us-east-1:336392948345:layer:AWSSDKPandas-Python313-Arm64:1"
-}
+
 
 # # Lambda Function Template
 # resource "aws_lambda_function" "get_news" {
@@ -202,4 +222,161 @@ resource "aws_lambda_permission" "api_gateway" {
   function_name = aws_lambda_function.get_news_api.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.news_api.execution_arn}/*/*/getnews"
+}
+
+# step function
+resource "aws_sfn_state_machine" "scraper_step_function" {
+  name     = "NewsScraperStateMachine"
+  role_arn = local.role_arn
+
+  definition = jsonencode({
+    Comment = "Trigger news_scraper with retries"
+    StartAt = "RunScraper"
+    States = {
+      RunScraper = {
+        Type = "Task"
+        Resource = aws_lambda_function.news_scraper.arn
+        Retry = [
+          {
+            ErrorEquals     = ["States.ALL"]
+            IntervalSeconds = 300
+            MaxAttempts     = 2
+            BackoffRate     = 1.0
+          }
+        ]
+        End = true
+      }
+    }
+  })
+}
+
+
+# event bridge
+resource "aws_cloudwatch_event_rule" "hourly_trigger" {
+  name                = "HourlyStepFunctionTrigger"
+  schedule_expression = "rate(1 hour)"
+}
+
+resource "aws_cloudwatch_event_target" "invoke_scraper_step_function" {
+  rule      = aws_cloudwatch_event_rule.hourly_trigger.name
+  arn       = aws_sfn_state_machine.scraper_step_function.arn
+  role_arn  = local.role_arn
+}
+
+
+# from here extra things like cloudwatch, sns, etc.
+resource "aws_cloudwatch_log_group" "lambda_news_scraper" {
+  name              = "/aws/lambda/${aws_lambda_function.news_scraper.function_name}"
+  retention_in_days = 7
+}
+
+resource "aws_cloudwatch_log_group" "lambda_consumer" {
+  name              = "/aws/lambda/${aws_lambda_function.consumer.function_name}"
+  retention_in_days = 7
+}
+
+resource "aws_cloudwatch_log_group" "lambda_getnews" {
+  name              = "/aws/lambda/${aws_lambda_function.get_news_api.function_name}"
+  retention_in_days = 7
+}
+
+# # error alarm and time alarm not needed for fn
+# resource "aws_cloudwatch_metric_alarm" "lambda_scraper_errors" {
+#   alarm_name          = "LambdaScraperErrorAlarm"
+#   comparison_operator = "GreaterThanThreshold"
+#   evaluation_periods  = 1
+#   metric_name         = "Errors"
+#   namespace           = "AWS/Lambda"
+#   period              = 300
+#   statistic           = "Sum"
+#   threshold           = 0
+#   alarm_description   = "Alert when scraper lambda has errors"
+#   dimensions = {
+#     FunctionName = aws_lambda_function.news_scraper.function_name
+#   }
+# }
+# resource "aws_cloudwatch_metric_alarm" "lambda_scraper_duration" {
+#   alarm_name          = "LambdaScraperDurationAlarm"
+#   comparison_operator = "GreaterThanThreshold"
+#   evaluation_periods  = 1
+#   metric_name         = "Duration"
+#   namespace           = "AWS/Lambda"
+#   period              = 300
+#   statistic           = "Average"
+#   threshold           = 5000  # ms
+#   alarm_description   = "Alert if Lambda duration > 5 seconds"
+#   dimensions = {
+#     FunctionName = aws_lambda_function.news_scraper.function_name
+#   }
+# }
+
+# cloudwatch for step fn
+
+# # change the step function as shown below
+# resource "aws_cloudwatch_log_group" "step_function_logs" {
+#   name              = "/aws/stepfunctions/news_scraper_state_machine"
+#   retention_in_days = 7
+# }
+
+# resource "aws_sfn_state_machine" "scraper_step_function" {
+#   name     = "NewsScraperStateMachine"
+#   role_arn = local.role_arn
+
+#   logging_configuration {
+#     include_execution_data = true
+#     level                  = "ALL"
+#     destinations = [
+#       {
+#         cloudwatch_logs_log_group = aws_cloudwatch_log_group.step_function_logs.arn
+#       }
+#     ]
+#   }
+
+#   definition = jsonencode({
+#     Comment = "Trigger news_scraper with retries"
+#     StartAt = "RunScraper"
+#     States = {
+#       RunScraper = {
+#         Type = "Task"
+#         Resource = aws_lambda_function.news_scraper.arn
+#         Retry = [
+#           {
+#             ErrorEquals     = ["States.ALL"]
+#             IntervalSeconds = 300
+#             MaxAttempts     = 2
+#             BackoffRate     = 1.0
+#           }
+#         ]
+#         End = true
+#       }
+#     }
+#   })
+# }
+
+
+# step fn alert
+resource "aws_sns_topic" "step_function_alerts" {
+  name = "step-function-failure-alerts"
+}
+
+resource "aws_sns_topic_subscription" "email_alert" {
+  topic_arn = aws_sns_topic.step_function_alerts.arn
+  protocol  = "email"
+  endpoint  = "your_email@example.com" # Replace with your actual email
+}
+
+resource "aws_cloudwatch_metric_alarm" "step_function_failures" {
+  alarm_name          = "StepFunctionExecutionFailures"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "ExecutionsFailed"
+  namespace           = "AWS/States"
+  period              = 300
+  statistic           = "Sum"
+  threshold           = 0
+  alarm_description   = "Alert when step function fails after retries"
+  alarm_actions       = [aws_sns_topic.step_function_alerts.arn]
+  dimensions = {
+    StateMachineArn = aws_sfn_state_machine.scraper_step_function.id
+  }
 }

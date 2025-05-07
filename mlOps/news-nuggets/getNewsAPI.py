@@ -13,6 +13,11 @@ def lambda_handler(event, context):
     if last_key:
         scan_args['ExclusiveStartKey'] = {'article_id': last_key}
 
+    # headers = {
+    #     'Access-Control-Allow-Origin': '*',
+    #     'Access-Control-Allow-Headers': 'Content-Type',
+    #     'Access-Control-Allow-Methods': 'OPTIONS,POST'
+    # }
     try:
         response = table.scan(**scan_args)
 
