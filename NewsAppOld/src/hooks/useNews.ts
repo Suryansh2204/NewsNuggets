@@ -10,6 +10,25 @@ export const useNews = (initialCategory: NewsCategory = 'all') => {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  // const fetchNews = async () => {
+  //   try {
+  //     setLoading(true);
+  //     setError(null);
+  //     const response = await fetch('https:/anbzskof1m.execute-api.us-east-1.amazonaws.com/prod')
+  //     const data = await response.json();
+  //     setNews(data.articles);
+  //   } catch (err) {
+  //     setError('Failed to load news');
+  //     console.error(err);
+  //   } finally {
+  //     setLoading(false);
+  //     setRefreshing(false);
+  //   }
+  // };
+  // useEffect(() => {
+
+  //   fetchNews();
+  // },);
 
   const loadNews = useCallback(
     async (reset = false) => {
@@ -22,7 +41,7 @@ export const useNews = (initialCategory: NewsCategory = 'all') => {
 
         setNews(prev => reset ? response.articles : [...prev, ...response.articles]);
         setHasMore(response.hasMore);
-
+        // fetchNews();
         if (!reset) {
           setPage(prev => prev + 1);
         } else {

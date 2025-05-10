@@ -7,7 +7,7 @@ locals {
   runtime        = "python3.13"
   architecture   = "arm64"
   timeout        = 180
-  role_arn       = "arn:aws:iam::800926736763:role/LabRole"
+  role_arn       = "arn:aws:iam::381492125616:role/LabRole"
   layer_arn      = "arn:aws:lambda:us-east-1:336392948345:layer:AWSSDKPandas-Python313-Arm64:1"
 }
 
